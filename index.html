@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="="width, initial-scale=1.0">
+    <title>六级单词卡</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: system-ui, sans-serif;
+        }
+        body {
+            background: #f4f7fa;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding:  40px 20px;
+        }
+        .card-container {
+            perspective:  1000px;
+            margin-bottom: 30px;
+        }
+        .card {
+            width:  340px;
+            height:  220px;
+            position: relative;
+            transform-style: preserve-3d;
+            transition: transform 0.6s;
+            cursor: pointer;
+        }
+        .-card.flipped {
+            transform: rotateY(180deg);
+        }
+        .front, .back {
+            position: absolute;
+            width:  100%;
+            height:  100%;
+            backface-visibility: hidden;
+            border-radius: 16px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 24px;
+            font-size: 24px;
+        }
+        .front {
+            background: #2b6cb0;
+            color: white;
+        }
+        .back {
+            background: white;
+            color: #222;
+            transform: rotateY(180deg);
+            border: 2px solid #2b6cb0;
+        }
+        button {
+            padding: 12px  24px;
+            border: none;
+            background: #2b6cb0;
+            color: white;
+            border-radius:  10px;
+            font-size: 17px;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+    <div class="card-container">
+        <div class="card" id="wordCard">
+            <div class="front" id="frontText"></div>
+            <div class="back" id="backText"></div>
+        </div>
+    </div>
+    <button id="nextBtn">下一个单词</button>
+
+    <script>
+        // 在这里放你的单词，格式：{en:"单词", cn:"释义"}
+        const wordList = [
+            { en: "abate", cn: "减弱，减轻，减退" },
+            { en: "aggregate", cn: "总计，合计；聚集的" },
+            { en: "akin", cn: "相似的，同族的" },
+            { en: "allegation", cn: "说法，指控（无证据的）" },
+            { en: "ambiguous", cn: "模棱两可的，含糊不清的" },
+            { en: "amend", cn: "修改，修订（文件、法律）" },
+            { en: "amplitude", cn: "振幅；幅度；广阔" },
+            { en: "antecedent", cn: "先例；前事；先前的" },
+            { en: "appraise", cn: "评估，估价，评价" },
+            { en: "articulate", cn: "清晰表达；口齿清楚的" },
+            { en: "barricade", cn: "路障；阻挡" },
+            { en: "burgeon", cn: "激增，迅速发展" },
+            { en: "cogent", cn: "有说服力的" },
+            { en: "conspicuous", cn: "显眼的，引人注目的" },
+            { en: "consensus", cn: "共识，一致意见" },
+            { en: "corroborate", cn: "证实，佐证" },
+            { en: "decimate", cn: "大批毁灭；大幅削减" },
+            { en: "diligent", cn: "勤奋的" },
+            { en: "elicit", cn: "引出，探出（信息、反应）" },
+            { en: "exacerbate", cn: "加剧，使恶化" }
+        ];
+
+        const card = document.getElementById("wordCard");
+        const frontText = document.getElementById("frontText");
+        const backText = document.getElementById("backText");
+        const nextBtn = document.getElementById("nextBtn");
+        let currentIndex = 0;
+
+        function showWord(){
+            const w = wordList[currentIndex];
+            frontText.innerText = w.en;
+            backText.innerText = w.cn;
+            card.classList.remove("flipped");
+        }
+        card.onclick = ()=>{
+            card.classList.toggle("flipped");
+        };
+        nextBtn.onclick = ()=>{
+            currentIndex = (currentIndex + 1) % wordList.length;
+            showWord();
+        };
+        showWord();
+    </script>
+</body>
+</html>
+#背单词卡片页面
