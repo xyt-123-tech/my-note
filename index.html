@@ -1,126 +1,736 @@
 <!DOCTYPE html>
-<html lang="="zh-CN">
+<html lang="zh-CN">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="="width, initial-scale=1.0">
-    <title>六级单词卡</title>
-    <style>
-        * {
-            box-sizing: border-box;
-            margin: 0;
-            padding: 0;
-            font-family: system-ui, sans-serif;
-        }
-        body {
-            background: #f4f7fa;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            padding:  40px 20px;
-        }
-        .card-container {
-            perspective:  1000px;
-            margin-bottom: 30px;
-        }
-        .card {
-            width:  340px;
-            height:  220px;
-            position: relative;
-            transform-style: preserve-3d;
-            transition: transform 0.6s;
-            cursor: pointer;
-        }
-        .-card.flipped {
-            transform: rotateY(180deg);
-        }
-        .front, .back {
-            position: absolute;
-            width:  100%;
-            height:  100%;
-            backface-visibility: hidden;
-            border-radius: 16px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            padding: 24px;
-            font-size: 24px;
-        }
-        .front {
-            background: #2b6cb0;
-            color: white;
-        }
-        .back {
-            background: white;
-            color: #222;
-            transform: rotateY(180deg);
-            border: 2px solid #2b6cb0;
-        }
-        button {
-            padding: 12px  24px;
-            border: none;
-            background: #2b6cb0;
-            color: white;
-            border-radius:  10px;
-            font-size: 17px;
-            cursor: pointer;
-        }
-    </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>自测题小工具</title>
+<script>
+  window.MathJax = {
+    tex: { inlineMath: [['$', '$'], ['\\(', '\\)']], displayMath: [['$$', '$$'], ['\\[', '\\]']] },
+    svg: { fontCache: 'global' }
+  };
+</script>
+<script async src="ocr/mathjax/es5/tex-mml-chtml.js"></script>
+<script src="ocr/pdfjs/pdf.min.js"></script>
+<script src="ocr/tesseract.min.js"></script>
+<style>
+  :root {
+    --bg: #f5f7fa; --card: #ffffff; --ink: #1f2937; --muted: #6b7280;
+    --line: #e5e7eb; --brand: #2563eb; --brand-d: #1d4ed8;
+    --ok: #16a34a; --no: #dc2626; --soft: #eff6ff;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; font-family: -apple-system, "Segoe UI", "Microsoft YaHei", sans-serif;
+    background: var(--bg); color: var(--ink); line-height: 1.6;
+  }
+  .wrap { max-width: 820px; margin: 0 auto; padding: 24px 16px 60px; }
+  h1 { font-size: 24px; margin: 0 0 4px; }
+  .sub { color: var(--muted); font-size: 14px; margin-bottom: 20px; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 22px; box-shadow: 0 1px 3px rgba(0,0,0,.04); }
+  .hidden { display: none !important; }
+  button {
+    font: inherit; cursor: pointer; border: none; border-radius: 10px;
+    padding: 11px 18px; background: var(--brand); color: #fff; font-weight: 600;
+    transition: background .15s;
+  }
+  button:hover { background: var(--brand-d); }
+  button.ghost { background: #fff; color: var(--brand); border: 1px solid var(--line); }
+  button.ghost:hover { background: var(--soft); }
+  input[type=number], input[type=file] { font: inherit; }
+  .row { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+  .field { margin: 14px 0; }
+  label { display: block; font-size: 14px; color: var(--muted); margin-bottom: 6px; }
+  .timer {
+    position: sticky; top: 0; z-index: 5; background: var(--card);
+    border: 1px solid var(--line); border-radius: 12px; padding: 10px 16px;
+    display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;
+  }
+  .timer .clock { font-variant-numeric: tabular-nums; font-size: 20px; font-weight: 700; color: var(--brand); }
+  .timer.warn .clock { color: var(--no); }
+  .qmeta { font-size: 13px; color: var(--muted); margin-bottom: 8px; }
+  .passage { background: var(--soft); border-left: 4px solid var(--brand); padding: 12px 14px; border-radius: 8px; margin-bottom: 14px; white-space: pre-wrap; }
+  .qtext { font-size: 18px; font-weight: 600; margin-bottom: 14px; white-space: pre-wrap; }
+  .qimg { max-width: 100%; border-radius: 8px; margin: 0 0 14px; display: block; }
+  .opt {
+    display: block; width: 100%; text-align: left; background: #fff; color: var(--ink);
+    border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; margin: 8px 0; font-weight: 500;
+  }
+  .opt:hover { border-color: var(--brand); }
+  .opt.sel { background: var(--soft); border-color: var(--brand); }
+  textarea, input[type=text] {
+    width: 100%; font: inherit; padding: 12px 14px; border: 1px solid var(--line);
+    border-radius: 10px; resize: vertical;
+  }
+  .nav { display: flex; justify-content: space-between; margin-top: 20px; }
+  .progress { font-size: 14px; color: var(--muted); }
+  .summary { font-size: 16px; margin-bottom: 18px; }
+  .summary b { color: var(--brand); }
+  .item { border: 1px solid var(--line); border-radius: 12px; padding: 16px; margin-bottom: 14px; }
+  .item .tag { display: inline-block; font-size: 12px; padding: 2px 8px; border-radius: 999px; background: var(--soft); color: var(--brand); margin-right: 8px; }
+  .res-q { font-weight: 600; white-space: pre-wrap; margin: 8px 0; }
+  .res-line { font-size: 14px; margin: 4px 0; }
+  .ok { color: var(--ok); font-weight: 700; }
+  .no { color: var(--no); font-weight: 700; }
+  .explain { background: #fafafa; border-radius: 8px; padding: 10px 12px; margin-top: 8px; font-size: 14px; white-space: pre-wrap; }
+  details { margin-top: 16px; font-size: 14px; color: var(--muted); }
+  details summary { cursor: pointer; color: var(--brand); }
+  pre { background: #0f172a; color: #e2e8f0; padding: 12px; border-radius: 8px; overflow: auto; font-size: 13px; }
+  .err { color: var(--no); font-size: 14px; margin-top: 10px; }
+</style>
 </head>
 <body>
-    <div class="card-container">
-        <div class="card" id="wordCard">
-            <div class="front" id="frontText"></div>
-            <div class="back" id="backText"></div>
-        </div>
+<div class="wrap">
+  <h1>📝 自测题小工具</h1>
+  <div class="sub">上传题目文件 → 自测做题 → 定时交卷 → 出解析。文件只在你浏览器里读取，不上传任何服务器。</div>
+
+  <!-- 开始界面 -->
+  <div id="start" class="card">
+    <div class="field">
+      <label>1. 选择题目文件（.txt，格式见下方说明）</label>
+      <input type="file" id="file" accept=".txt,.text,.md,.pdf">
     </div>
-    <button id="nextBtn">下一个单词</button>
+    <div class="field">
+      <label>2. 或直接从网页复制题目，粘贴到这里（不用存文件）</label>
+      <textarea id="pasteBox" rows="5" placeholder="把从网上/文档复制的题目粘进来，格式同下方说明（用 ==== 分隔每题）"></textarea>
+    </div>
+    <div class="field">
+      <label>3. 整场限时（分钟，0 表示不计时）</label>
+      <input type="number" id="mins" value="30" min="0" step="1" style="width:120px;">
+    </div>
+    <div class="field">
+      <label style="display:flex;align-items:center;gap:8px;color:var(--ink)">
+        <input type="checkbox" id="shuffleChk"> 随机打乱题目顺序（每次不一样）
+      </label>
+    </div>
+      <div class="row">
+        <button id="startBtn">开始自测（用上面文件）</button>
+        <button class="ghost" id="pasteBtn">开始自测（用粘贴内容）</button>
+        <button class="ghost" id="structPasteBtn">AI 整理成题（用粘贴内容）</button>
+        <button class="ghost" id="sampleBtn">先加载示例试试</button>
+      </div>
+      <div class="field">
+        <label>4. 或上传一张题目图片，让 AI（视觉模型）识别成题目（需支持看图的模型，如通义 qwen-vl / 智谱 glm-4v）</label>
+        <div class="row">
+          <input type="file" id="imgFile" accept="image/*">
+          <button class="ghost" id="imgBtn">识别图片成题目</button>
+        </div>
+      </div>
+      <div class="field">
+        <label>5. 本地扫描（推荐，免费无需 key）：选一张题目图片/扫描页，本工具在浏览器里免费识别成文字，再用你的 AI（deepseek-chat 等纯文本模型即可）整理成题</label>
+        <div class="row">
+          <input type="file" id="ocrFile" accept="image/*">
+          <button class="ghost" id="ocrBtn">📷 扫描图片成文字</button>
+          <button class="ghost" id="ocrStructBtn">扫描并 AI 整理成题</button>
+        </div>
+        <div id="ocrStatus" class="err"></div>
+      </div>
+      <div class="field">
+        <label>6. 我的作答存档：把写好答案的卷子拍照上传（手机/手写均可），自动识别成文字，方便对照答案与解析</label>
+        <div class="row">
+          <input type="file" id="ansFile" accept="image/*" capture="environment">
+          <button class="ghost" id="ansBtn">📷 识别我的作答</button>
+        </div>
+        <img id="ansThumb" class="hidden" style="max-width:100%;max-height:260px;margin-top:8px;border-radius:8px;border:1px solid var(--line)" alt="作答图片">
+        <textarea id="ansText" rows="5" style="width:100%;margin-top:8px;display:none" placeholder="识别出的你的作答会显示在这里，可修改后自行保存"></textarea>
+        <div id="ansStatus" class="err"></div>
+      </div>
+    <div id="err" class="err"></div>
 
-    <script>
-        // 在这里放你的单词，格式：{en:"单词", cn:"释义"}
-        const wordList = [
-            { en: "abate", cn: "减弱，减轻，减退" },
-            { en: "aggregate", cn: "总计，合计；聚集的" },
-            { en: "akin", cn: "相似的，同族的" },
-            { en: "allegation", cn: "说法，指控（无证据的）" },
-            { en: "ambiguous", cn: "模棱两可的，含糊不清的" },
-            { en: "amend", cn: "修改，修订（文件、法律）" },
-            { en: "amplitude", cn: "振幅；幅度；广阔" },
-            { en: "antecedent", cn: "先例；前事；先前的" },
-            { en: "appraise", cn: "评估，估价，评价" },
-            { en: "articulate", cn: "清晰表达；口齿清楚的" },
-            { en: "barricade", cn: "路障；阻挡" },
-            { en: "burgeon", cn: "激增，迅速发展" },
-            { en: "cogent", cn: "有说服力的" },
-            { en: "conspicuous", cn: "显眼的，引人注目的" },
-            { en: "consensus", cn: "共识，一致意见" },
-            { en: "corroborate", cn: "证实，佐证" },
-            { en: "decimate", cn: "大批毁灭；大幅削减" },
-            { en: "diligent", cn: "勤奋的" },
-            { en: "elicit", cn: "引出，探出（信息、反应）" },
-            { en: "exacerbate", cn: "加剧，使恶化" }
-        ];
+    <details>
+      <summary>🔑 AI 解析设置（国产大模型：DeepSeek / 通义 / 智谱 等）</summary>
+      <p style="font-size:13px;color:var(--muted)">填一次即可，保存在你本机浏览器（localStorage）。注意：key 只存本地，别把网页公开出去，否则别人能用你的 key。<b>使用前请先双击本文件夹里的「启动AI中转.bat」并保持黑窗口打开</b>——本工具通过本地中转连接 AI，避免浏览器跨域拦截。DeepSeek 示例：地址 <code>https://api.deepseek.com/v1</code>，模型 <code>deepseek-chat</code>。</p>
+      <div class="field">
+        <label>API 地址（含 /v1，如 https://api.deepseek.com/v1）</label>
+        <input type="text" id="aiBase" style="width:100%" placeholder="https://api.deepseek.com/v1">
+      </div>
+      <div class="field">
+        <label>API Key</label>
+        <input type="password" id="aiKey" style="width:100%" placeholder="sk-...">
+      </div>
+      <div class="field">
+        <label>模型名（如 deepseek-chat / qwen-plus / glm-4）</label>
+        <input type="text" id="aiModel" style="width:100%" placeholder="deepseek-chat">
+      </div>
+      <div class="field">
+        <label>视觉模型名（图片识别用，留空则用上面的模型；如 qwen-vl-plus / glm-4v）</label>
+        <input type="text" id="aiVision" style="width:100%" placeholder="留空则用上面的模型">
+      </div>
+      <div class="row">
+        <button id="aiSave">保存设置</button>
+        <span id="aiStatus" style="font-size:13px;color:var(--muted)"></span>
+      </div>
+    </details>
 
-        const card = document.getElementById("wordCard");
-        const frontText = document.getElementById("frontText");
-        const backText = document.getElementById("backText");
-        const nextBtn = document.getElementById("nextBtn");
-        let currentIndex = 0;
+    <details>
+      <summary>题目文件格式说明（点击展开）</summary>
+      <p>用 <code>====</code> 分隔每一题。题型用 <code>TYPE:</code> 区分：</p>
+      <ul>
+        <li><code>TYPE: choice</code> 选择题：写 A/B/C/D 选项 + <code>Answer:</code> 正确项 + <code>Explain:</code> 解析，系统自动判分。</li>
+        <li><code>TYPE: fill</code> 填空/简答：不写选项，你打字作答，做完给标准答案自查。</li>
+        <li><code>TYPE: essay</code> 解答/开放题：长篇作答，只给标准答案自查。</li>
+      </ul>
+      <p>可选字段：<code>PASSAGE:</code> 阅读篇章（后面几题共用）、<code>IMG:</code> 图片链接或仓库内相对路径、<code>Q:</code>/<code>Explain:</code> 可多行。公式用 <code>$...$</code> 包裹可自动渲染。</p>
+      <p><b>自己写答案和解析（无需 AI）：</b>每题写 <code>Answer:</code>（你的标准答案）+ <code>Explain:</code>（你的解析），交卷后结果页会直接显示，不调用任何 AI。选择题系统自动判分；填空/解答题你照着 <code>Answer:</code> 自查即可。</p>
+      <p><b>扫描来的图片不会自动有答案</b>：OCR/图片识别只负责"把题变成文字"，答案和解析需要你写在文件里（或用「🤖 AI 解析」现场生成）。</p>
+      <pre>PASSAGE: 阅读下面短文，回答两题。
+In 2050, cities will ...
+====
+TYPE: choice
+Q: What is the main idea?
+A: ...
+B: ...
+C: ...
+D: ...
+Answer: B
+Explain: 主旨题，B 对应全文中心。
+====
+TYPE: choice
+Q: 若 $f(x)=x^2$，则 $f'(1)=$？
+A: 1   B: 2   C: 0   D: 1/2
+Answer: B
+Explain: 导数 $f'(x)=2x$，故 $f'(1)=2$。
+====
+TYPE: fill
+IMG: https://example.com/geo.png
+Q: 如图，求阴影面积。
+Answer: 12
+Explain: 用割补法得 12。
+====
+TYPE: essay
+Q: 简述哥德巴赫猜想。
+Answer: 每个大于 2 的偶数可写成两素数之和。
+Explain: 1742 年提出，至今未完全证明。
+====</pre>
+    </details>
+  </div>
 
-        function showWord(){
-            const w = wordList[currentIndex];
-            frontText.innerText = w.en;
-            backText.innerText = w.cn;
-            card.classList.remove("flipped");
+  <!-- 做题界面 -->
+  <div id="quiz" class="hidden">
+    <div class="timer" id="timerBar">
+      <span class="progress" id="progress">第 1 / 1 题</span>
+      <span class="clock" id="clock">--:--</span>
+    </div>
+    <div class="card" id="qcard"></div>
+    <div class="nav">
+      <button class="ghost" id="prevBtn">上一题</button>
+      <button id="nextBtn">下一题</button>
+    </div>
+  </div>
+
+  <!-- 结果界面 -->
+  <div id="result" class="hidden">
+    <div class="card">
+      <h1 style="font-size:22px;">📊 自测结果</h1>
+      <div class="summary" id="summary"></div>
+      <div id="resList"></div>
+      <div class="row" style="margin-top:18px;">
+        <button class="ghost" id="againBtn">重新做一套（重新上传）</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+(function () {
+  "use strict";
+  var SAMPLE = [
+    "PASSAGE: 阅读下面短文，回答两题。",
+    "In 2050, most cities will rely on renewable energy and AI traffic systems.",
+    "====",
+    "TYPE: choice",
+    "Q: What will most cities rely on by 2050?",
+    "A: Coal and manual control",
+    "B: Renewable energy and AI",
+    "C: Nuclear weapons",
+    "D: Nothing changes",
+    "Answer: B",
+    "Explain: 短文明确说 rely on renewable energy and AI traffic systems。",
+    "====",
+    "TYPE: choice",
+    "Q: 若 $f(x)=x^2$，则 $f'(1)=$？",
+    "A: 1   B: 2   C: 0   D: 1/2",
+    "Answer: B",
+    "Explain: 导数 $f'(x)=2x$，故 $f'(1)=2$。",
+    "====",
+    "TYPE: fill",
+    "IMG: https://upload.wikimedia.org/wikipedia/commons/thumb/3/3e/circle-diameter.svg/200px-circle-diameter.svg.png",
+    "Q: 如图，圆的直径 d=10，求其面积（取 π≈3.14）。",
+    "Answer: 78.5",
+    "Explain: 半径 r=5，面积=πr²≈3.14×25=78.5。",
+    "====",
+    "TYPE: essay",
+    "Q: 简述哥德巴赫猜想的内容。",
+    "Answer: 每个大于 2 的偶数都可以表示为两个素数之和。",
+    "Explain: 1742 年哥德巴赫提出，至今仍未完全证明。"
+  ].join("\n");
+
+  var state = { questions: [], idx: 0, answers: [], mins: 0, timer: null, endAt: 0 };
+
+  function $(id) { return document.getElementById(id); }
+  function typeset() {
+    if (window.MathJax && MathJax.typesetPromise) { MathJax.typesetPromise().catch(function () {}); }
+  }
+  function esc(s) {
+    return (s || "").replace(/[&<>"]/g, function (c) {
+      return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c];
+    });
+  }
+
+  // ---- 解析题目文件 ----
+  function parseQuestions(text) {
+    var blocks = text.split(/^[ \t]*====[ \t]*$/m).map(function (b) { return b.trim(); }).filter(Boolean);
+    var currentPassage = "";
+    var questions = [];
+    blocks.forEach(function (block) {
+      var lines = block.split(/\r?\n/);
+      var q = { type: "choice", passage: currentPassage, q: "", options: {}, answer: "", explain: "", img: "" };
+      var last = null;
+      lines.forEach(function (line) {
+        var opt = line.match(/^\s*([A-D]):\s*(.*)$/);
+        var isField = /^(TYPE|Q|PASSAGE|IMG|Answer|Explain):/i.test(line);
+        if (opt && !isField) {
+          var segs = line.split(/(?=\s+[A-D]:)/);
+          segs.forEach(function (seg) {
+            var mm = seg.match(/^\s*([A-D]):\s*(.*)$/);
+            if (mm) { q.options[mm[1]] = mm[2].trim(); last = mm[1]; }
+          });
+          return;
         }
-        card.onclick = ()=>{
-            card.classList.toggle("flipped");
-        };
-        nextBtn.onclick = ()=>{
-            currentIndex = (currentIndex + 1) % wordList.length;
-            showWord();
-        };
-        showWord();
-    </script>
+        if (/^TYPE:/i.test(line)) { q.type = line.replace(/^TYPE:/i, "").trim().toLowerCase(); last = "type"; }
+        else if (/^PASSAGE:/i.test(line)) { currentPassage = line.replace(/^PASSAGE:/i, "").trim(); q.passage = currentPassage; last = "passage"; }
+        else if (/^Q:/i.test(line)) { q.q = line.replace(/^Q:/i, "").trim(); last = "q"; }
+        else if (/^Answer:/i.test(line)) { q.answer = line.replace(/^Answer:/i, "").trim(); last = "answer"; }
+        else if (/^Explain:/i.test(line)) { q.explain = line.replace(/^Explain:/i, "").trim(); last = "explain"; }
+        else if (/^IMG:/i.test(line)) { q.img = line.replace(/^IMG:/i, "").trim(); last = "img"; }
+        else {
+          var t = line.trim();
+          if (!t) return;
+          if (last === "q") q.q += "\n" + t;
+          else if (last === "explain") q.explain += "\n" + t;
+          else if (last === "answer") q.answer += "\n" + t;
+          else if (last === "passage") { currentPassage += "\n" + t; q.passage = currentPassage; }
+        }
+      });
+      if (q.q || q.answer) questions.push(q);
+    });
+    return questions;
+  }
+
+  // ---- 界面切换 ----
+  function show(id) {
+    ["start", "quiz", "result"].forEach(function (k) { $(k).classList.add("hidden"); });
+    $(id).classList.remove("hidden");
+  }
+
+  function startQuiz(text) {
+    var qs = parseQuestions(text);
+    if (!qs.length) { $("err").textContent = "没解析出题目，请检查文件格式（每题用 ==== 分隔，且有 Q: 或 Answer:）。"; return; }
+    if ($("shuffleChk") && $("shuffleChk").checked) {
+      for (var k = qs.length - 1; k > 0; k--) { var j = Math.floor(Math.random() * (k + 1)); var tmp = qs[k]; qs[k] = qs[j]; qs[j] = tmp; }
+    }
+    state.questions = qs;
+    state.answers = new Array(qs.length).fill(null);
+    state.idx = 0;
+    state.mins = Math.max(0, parseInt($("mins").value, 10) || 0);
+    $("err").textContent = "";
+    show("quiz");
+    renderQuestion();
+    startTimer();
+  }
+
+  function startTimer() {
+    if (state.timer) clearInterval(state.timer);
+    if (state.mins <= 0) { $("clock").textContent = "不计时"; $("timerBar").classList.remove("warn"); return; }
+    state.endAt = Date.now() + state.mins * 60000;
+    tick();
+    state.timer = setInterval(tick, 1000);
+  }
+  function tick() {
+    var left = Math.max(0, state.endAt - Date.now());
+    var m = Math.floor(left / 60000), s = Math.floor((left % 60000) / 1000);
+    $("clock").textContent = (m < 10 ? "0" : "") + m + ":" + (s < 10 ? "0" : "") + s;
+    $("timerBar").classList.toggle("warn", left <= 60000 && left > 0);
+    if (left <= 0) { clearInterval(state.timer); finish(); }
+  }
+
+  function renderQuestion() {
+    var i = state.idx, q = state.questions[i], html = "";
+    $("progress").textContent = "第 " + (i + 1) + " / " + state.questions.length + " 题";
+    if (q.passage) html += '<div class="passage">' + esc(q.passage) + "</div>";
+    html += '<div class="qmeta">题型：' + typeName(q.type) + "</div>";
+    html += '<div class="qtext">' + esc(q.q) + "</div>";
+    if (q.img) html += '<img class="qimg" src="' + esc(q.img) + '" alt="题目图片">';
+    if (q.type === "choice") {
+      ["A", "B", "C", "D"].forEach(function (k) {
+        if (!q.options[k]) return;
+        var sel = state.answers[i] === k ? " sel" : "";
+        html += '<button class="opt' + sel + '" data-k="' + k + '">' + k + ". " + esc(q.options[k]) + "</button>";
+      });
+    } else if (q.type === "fill") {
+      var v = state.answers[i] || "";
+      html += '<input type="text" id="fillIn" value="' + esc(v) + '" placeholder="输入你的答案">';
+    } else {
+      var ev = state.answers[i] || "";
+      html += '<textarea id="essayIn" rows="5" placeholder="输入你的作答">' + esc(ev) + "</textarea>";
+    }
+    html += '<div class="row" style="margin-top:14px"><button class="ghost" id="aiBtn">🤖 AI 解析这道题</button></div><div id="aiOut" class="explain" style="display:none"></div>';
+    $("qcard").innerHTML = html;
+    if (q.type === "choice") {
+      Array.prototype.forEach.call($("qcard").querySelectorAll(".opt"), function (btn) {
+        btn.addEventListener("click", function () {
+          state.answers[i] = btn.getAttribute("data-k");
+          renderQuestion();
+        });
+      });
+    } else if (q.type === "fill") {
+      $("fillIn").addEventListener("input", function (e) { state.answers[i] = e.target.value; });
+    } else {
+      $("essayIn").addEventListener("input", function (e) { state.answers[i] = e.target.value; });
+    }
+    var aiBtn = $("qcard").querySelector("#aiBtn");
+    if (aiBtn) aiBtn.addEventListener("click", function () { askAI(buildPrompt(q), $("qcard").querySelector("#aiOut"), aiBtn); });
+    $("prevBtn").disabled = i === 0;
+    $("nextBtn").textContent = i === state.questions.length - 1 ? "提交" : "下一题";
+    typeset();
+  }
+
+  function typeName(t) { return t === "choice" ? "选择题" : t === "fill" ? "填空/简答" : "解答/开放题"; }
+
+  function next() {
+    if (state.idx < state.questions.length - 1) { state.idx++; renderQuestion(); }
+    else finish();
+  }
+  function prev() { if (state.idx > 0) { state.idx--; renderQuestion(); } }
+
+  function finish() {
+    if (state.timer) clearInterval(state.timer);
+    show("result");
+    var qs = state.questions, ans = state.answers;
+    var correct = 0, choiceTotal = 0;
+    qs.forEach(function (q, i) {
+      if (q.type === "choice") {
+        choiceTotal++;
+        if ((ans[i] || "").trim().toUpperCase() === (q.answer || "").trim().toUpperCase()) correct++;
+      }
+    });
+    var html = "共 <b>" + qs.length + "</b> 题";
+    if (choiceTotal) html += " ｜ 选择题自动判分：<b>" + correct + " / " + choiceTotal + "</b> 正确";
+    html += " ｜ 填空/解答题请自行对照标准答案。";
+    $("summary").innerHTML = html;
+
+    var list = "";
+    qs.forEach(function (q, i) {
+      list += '<div class="item">';
+      list += '<span class="tag">' + typeName(q.type) + "</span>";
+      if (q.passage) list += '<div class="qmeta">（共用篇章见上题）</div>';
+      list += '<div class="res-q">' + esc(q.q) + "</div>";
+      if (q.img) list += '<img class="qimg" src="' + esc(q.img) + '" alt="题目图片">';
+      if (q.type === "choice") {
+        var ok = (ans[i] || "").trim().toUpperCase() === (q.answer || "").trim().toUpperCase();
+        list += '<div class="res-line">你的答案：<span class="' + (ok ? "ok" : "no") + '">' + esc(ans[i] || "（未作答）") + "</span></div>";
+        list += '<div class="res-line">正确答案：<span class="ok">' + esc(q.answer) + "</span></div>";
+      } else {
+        list += '<div class="res-line">你的作答：' + (ans[i] ? esc(ans[i]) : "（未作答）") + "</div>";
+        list += '<div class="res-line">标准答案：<span class="ok">' + esc(q.answer) + "</span></div>";
+      }
+      if (q.explain) list += '<div class="explain"><b>解析：</b>' + esc(q.explain) + "</div>";
+      list += '<div class="row" style="margin-top:8px"><button class="ghost ai-res-btn" data-i="' + i + '">🤖 AI 解析</button></div><div class="explain ai-res-out" data-i="' + i + '" style="display:none"></div>';
+      list += "</div>";
+    });
+    $("resList").innerHTML = list;
+    Array.prototype.forEach.call($("resList").querySelectorAll(".ai-res-btn"), function (btn) {
+      btn.addEventListener("click", function () {
+        var i = parseInt(btn.getAttribute("data-i"), 10);
+        var out = $("resList").querySelector('.ai-res-out[data-i="' + i + '"]');
+        askAI(buildPrompt(state.questions[i]), out, btn);
+      });
+    });
+    typeset();
+    window.scrollTo(0, 0);
+  }
+
+  // ---- AI 解析（国产大模型，OpenAI 兼容接口） ----
+  function buildPrompt(q) {
+    var s = "";
+    if (q.passage) s += "篇章：\n" + q.passage + "\n\n";
+    s += "题目：\n" + q.q + "\n";
+    if (q.type === "choice") {
+      ["A", "B", "C", "D"].forEach(function (k) { if (q.options[k]) s += k + ". " + q.options[k] + "\n"; });
+      s += "\n（本题为选择题，正确选项为 " + (q.answer || "?") + "）\n";
+    } else if (q.img) {
+      s += "图片：" + q.img + "\n";
+    }
+    s += "\n请解析这道题。";
+    return s;
+  }
+  // 统一走本地中转（http://localhost:8787/ai），绕开浏览器跨域拦截
+  var RELAY = "http://localhost:8787/ai";
+  // 本地 OCR 资源路径（ocr/ 文件夹已随项目下载，无需联网）
+  var OCR_OPT = {
+    workerPath: "ocr/worker.min.js",
+    corePath: "ocr/core/",
+    langPath: "ocr/lang/"
+  };
+  function needServerTip() {
+    return "OCR 识别库未能加载。请通过本机中转打开本页：先双击「启动AI中转.bat」保持黑窗口打开，再在浏览器访问 http://localhost:8787/ （不要直接双击 index.html）。确保 ocr/ 文件夹与本页在同一目录。";
+  }
+  function callAI(messages, modelName) {
+    var base = localStorage.getItem("aiBase") || "";
+    var key = localStorage.getItem("aiKey") || "";
+    var model = modelName || localStorage.getItem("aiModel") || "";
+    return new Promise(function (resolve, reject) {
+      if (!base || !key || !model) { reject(new Error("请先在「AI 解析设置」填写 API 地址、Key 和模型名并保存。")); return; }
+      fetch(RELAY, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ base: base, key: key, model: model, messages: messages })
+      })
+        .then(function (r) { if (!r.ok) throw new Error("HTTP " + r.status); return r.json(); })
+        .then(function (d) { resolve((d.choices && d.choices[0] && d.choices[0].message.content) || "（AI 未返回内容）"); })
+        .catch(function (e) {
+          var m = e.message || "";
+          if (m.indexOf("Failed to fetch") >= 0) m = "连不上本地中转：请先双击「启动AI中转.bat」并保持黑窗口打开，再试。";
+          reject(new Error(m));
+        });
+    });
+  }
+  function askAI(prompt, outEl, btn) {
+    if (btn) btn.disabled = true;
+    outEl.style.display = "block";
+    outEl.textContent = "正在向 AI 请求解析…";
+    callAI([
+      { role: "system", content: "你是一个解题辅导助手。用户会给你一道题（可能含篇章、选项或图片链接）。请先给出正确答案，再给出清晰、简洁的中文解析。若是开放/填空题，请给参考答案与思路。" },
+      { role: "user", content: prompt }
+    ])
+      .then(function (txt) { outEl.textContent = txt; typeset(); })
+      .catch(function (e) { outEl.textContent = "AI 请求失败：" + e.message; })
+      .finally(function () { if (btn) btn.disabled = false; });
+  }
+  function loadSettings() {
+    $("aiBase").value = localStorage.getItem("aiBase") || "";
+    $("aiKey").value = localStorage.getItem("aiKey") || "";
+    $("aiModel").value = localStorage.getItem("aiModel") || "";
+    $("aiVision").value = localStorage.getItem("aiVision") || "";
+    if (window.pdfjsLib) { try { pdfjsLib.GlobalWorkerOptions.workerSrc = "ocr/pdfjs/pdf.worker.min.js"; } catch (e) {} }
+  }
+
+  // ---- 文档 / 图片导入（PDF 提取、AI 整理、图片识别） ----
+  function readFileAsArrayBuffer(file, cb) {
+    var r = new FileReader();
+    r.onload = function () { cb(r.result); };
+    r.onerror = function () { $("err").textContent = "读取文件失败。"; };
+    r.readAsArrayBuffer(file);
+  }
+  function extractPdfText(buf) {
+    return pdfjsLib.getDocument({ data: buf }).promise.then(function (pdf) {
+      var tasks = [];
+      for (var p = 1; p <= pdf.numPages; p++) {
+        tasks.push(pdf.getPage(p).then(function (page) {
+          return page.getTextContent().then(function (tc) {
+            return tc.items.map(function (it) { return it.str; }).join(" ");
+          });
+        }));
+      }
+      return Promise.all(tasks).then(function (arr) { return arr.join("\n"); });
+    });
+  }
+  function handleExtracted(text, label) {
+    var qs = parseQuestions(text);
+    if (qs.length) { $("err").textContent = ""; startQuiz(text); return; }
+    if (!text || text.replace(/\s/g, "").length < 20) {
+      $("err").textContent = "PDF 里没提取到文字（很可能是扫描版/图片型 PDF）。请用「识别图片」功能：把这一页另存成图片（或截屏）后上传，直接上传试卷照片也行。";
+      return;
+    }
+    var base = localStorage.getItem("aiBase"), key = localStorage.getItem("aiKey"), model = localStorage.getItem("aiModel");
+    if (base && key && model) {
+      $("err").textContent = "未识别到题目格式，" + label + "内容已发给 AI 整理成题目…";
+      structureWithAI(text);
+    } else {
+      $("err").textContent = label + "里没找到本工具的题目格式（用 ==== 分隔）。可把内容整理成格式后上传，或在「AI 解析设置」填好信息让我帮您整理。";
+    }
+  }
+  function cleanAI(t) {
+    // 去掉 markdown 代码块包裹，只留题目文本
+    return t.split(/\r?\n/).filter(function (l) { return !/^\s*```/.test(l); }).join("\n").trim();
+  }
+  function structureWithAI(text) {
+    callAI([
+      { role: "system", content: "你是题目整理助手。用户会发来一段学习资料或试卷文本。请从中提取所有可考的题目，严格按格式输出纯文本：每题用单独一行的 ==== 分隔；每题必须用 TYPE 标明题型（choice/fill/essay）；选择题写 A:/B:/C:/D: 选项与 Answer: 正确项，所有题写 Explain:；无关内容丢弃。严格要求：1) 只输出题目文本，不要使用 markdown 代码块包裹，不要添加任何前后说明；2) Answer 后用英文冒号；3) 每题都不能缺少 Q: 和 Answer:。" },
+      { role: "user", content: text }
+    ])
+      .then(function (t) {
+        var c = cleanAI(t);
+        $("err").textContent = "";
+        if (!c) { alert("AI 未整理出题目，换内容或模型试试。"); return; }
+        var qs = parseQuestions(c);
+        if (!qs.length) {
+          $("err").innerHTML = "AI 整理出的内容仍无法直接解析为题目（已自动去掉代码块）。它实际返回的是：<br><pre style=\"white-space:pre-wrap;max-height:220px;overflow:auto;border:1px solid #ddd;padding:8px;margin-top:6px\">" + esc(c) + "</pre><br>通常是它没按 ==== 分隔或没用 Answer: 英文标签。可换模型重试，或把这份资料整理成标准格式再上传。";
+          return;
+        }
+        startQuiz(c);
+      })
+      .catch(function (e) { $("err").textContent = "AI 整理失败：" + e.message; });
+  }
+  function recognizeImage(dataUrl) {
+    var model = localStorage.getItem("aiVision") || localStorage.getItem("aiModel") || "";
+    if (!model) { alert("请先在「AI 解析设置」填写模型名（图片识别需支持图片的模型，如 qwen-vl-plus / glm-4v）。"); return; }
+    $("err").textContent = "正在用 AI 识别图片，请稍候…";
+    callAI([
+      { role: "system", content: "你是一个试卷识别助手。用户会发来一张题目图片（可能是单题、整页题、或一篇阅读理解：前面一段文章+后面跟着多道题）。请识别其中所有题目，严格按纯文本格式输出，不要加额外解释：\n- 若图片含整段阅读材料、后面紧跟多道题（即阅读理解），先用单独一行 PASSAGE: <文章正文> 写出整段篇章，再依次写这些题（题内不再重复文章），它们共用这段篇章。\n- 每题用单独一行的 ==== 分隔。\n- 每题用 TYPE: 标明题型（choice/fill/essay）；选择题写 A:/B:/C:/D: 选项与 Answer: 正确项；所有题写 Explain:。\n- 保留原题公式与关键内容，公式用 $...$ 包裹。" },
+      { role: "user", content: [
+        { type: "text", text: "请识别这张图片里的题目并转成上面的格式。" },
+        { type: "image_url", image_url: { url: dataUrl } }
+      ] }
+    ], model)
+      .then(function (txt) { $("err").textContent = ""; if (!txt.trim()) { alert("AI 未返回可识别的内容，换张清晰图片或换模型试试。"); return; } startQuiz(txt); })
+      .catch(function (e) { $("err").textContent = "图片识别失败：" + e.message + "。需使用支持图片的模型（如 qwen-vl-plus / glm-4v），且接口允许图片输入。"; });
+  }
+
+  // ---- PDF 自动扫描：渲染每页成图 → 本地 OCR → AI 整理（无需视觉模型） ----
+  function handlePdfFile(file) {
+    if (typeof pdfjsLib === "undefined") { $("err").textContent = "PDF 解析库未加载（可能网络受限），请改用 .txt 或粘贴文本。"; return; }
+    $("err").textContent = "正在读取 PDF…";
+    readFileAsArrayBuffer(file, function (buf) {
+      extractPdfText(buf).then(function (text) {
+        if (text && text.replace(/\s/g, "").length >= 20) { handleExtracted(text, "PDF"); return; }
+        scanPdfPages(buf); // 扫描版：逐页渲染成图再 OCR
+      }).catch(function () { scanPdfPages(buf); });
+    });
+  }
+  function renderPageToImage(pdf, p) {
+    return pdf.getPage(p).then(function (page) {
+      var viewport = page.getViewport({ scale: 2 });
+      var canvas = document.createElement("canvas");
+      canvas.width = viewport.width; canvas.height = viewport.height;
+      var ctx = canvas.getContext("2d");
+      return page.render({ canvasContext: ctx, viewport: viewport }).promise.then(function () {
+        return new Promise(function (res) { canvas.toBlob(function (b) { res(b); }, "image/png"); });
+      });
+    });
+  }
+  function ocrBlob(blob) {
+    return Tesseract.recognize(blob, "chi_sim+eng").then(function (r) { return r.data.text || ""; });
+  }
+  function scanPdfPages(buf) {
+    if (typeof Tesseract === "undefined") { $("err").textContent = "OCR 库未加载（可能网络无法访问公共 CDN），无法自动扫描图片型 PDF。请改用「本地扫描」按钮逐页处理，或先把 PDF 转成文字版。"; return; }
+    $("err").textContent = "这是扫描版 PDF，正在逐页本地扫描识别（识别包已在本机，无需联网）…";
+    pdfjsLib.getDocument({ data: buf }).promise.then(function (pdf) {
+      var n = pdf.numPages, chain = Promise.resolve("");
+      for (var p = 1; p <= n; p++) {
+        (function (p) { chain = chain.then(function (acc) {
+          return renderPageToImage(pdf, p).then(function (blob) {
+            $("err").textContent = "正在扫描第 " + p + " / " + n + " 页…";
+            return ocrBlob(blob).then(function (t) { return acc + "\n" + t; });
+          });
+        }); })(p);
+      }
+      return chain;
+    }).then(function (text) {
+      text = text.trim();
+      $("pasteBox").value = text;
+      var qs = parseQuestions(text);
+      if (qs.length) { startQuiz(text); }
+      else if (localStorage.getItem("aiBase") && localStorage.getItem("aiKey") && localStorage.getItem("aiModel")) { $("err").textContent = "扫描完成，正在交给 AI 整理成题…"; structureWithAI(text); }
+      else { $("err").textContent = "扫描完成，文字已填入文本框。请在「AI 解析设置」填好信息后点「AI 整理成题（用粘贴内容）」。"; }
+    }).catch(function (e) { $("err").textContent = "PDF 扫描失败：" + (e.message || e); });
+  }
+
+  // ---- 事件绑定 ----
+  $("startBtn").addEventListener("click", function () {
+    var f = $("file").files[0];
+    if (!f) { $("err").textContent = "请先选择文件，或粘贴文本 / 上传图片。"; return; }
+    var name = (f.name || "").toLowerCase();
+    if (name.endsWith(".pdf")) {
+      if (typeof pdfjsLib === "undefined") { $("err").textContent = "PDF 解析库未加载（可能网络受限），请改用 .txt 或粘贴文本。"; return; }
+      handlePdfFile(f);
+      return;
+    }
+    var r = new FileReader();
+    r.onload = function () { startQuiz(r.result); };
+    r.onerror = function () { $("err").textContent = "读取文件失败，请重试。"; };
+    r.readAsText(f);
+  });
+  $("sampleBtn").addEventListener("click", function () { startQuiz(SAMPLE); });
+  $("nextBtn").addEventListener("click", next);
+  $("prevBtn").addEventListener("click", prev);
+  $("againBtn").addEventListener("click", function () { show("start"); });
+  $("pasteBtn").addEventListener("click", function () {
+    var t = $("pasteBox").value.trim();
+    if (!t) { $("err").textContent = "请先在文本框里粘贴题目内容。"; return; }
+    startQuiz(t);
+  });
+  $("structPasteBtn").addEventListener("click", function () {
+    var t = $("pasteBox").value.trim();
+    if (!t) { $("err").textContent = "请先在文本框粘贴/扫描出文字，或上传图片扫描。"; return; }
+    var qs = parseQuestions(t);
+    if (qs.length) { startQuiz(t); return; }
+    var base = localStorage.getItem("aiBase"), key = localStorage.getItem("aiKey"), model = localStorage.getItem("aiModel");
+    if (base && key && model) { $("err").textContent = "文字已交给 AI 整理成题目…"; structureWithAI(t); }
+    else { $("err").textContent = "这段文字不是标准格式，需要 AI 帮忙整理。请先在「AI 解析设置」填好信息并保存，再点此按钮。"; }
+  });
+  function doOcr(structAfter) {
+    var f = $("ocrFile").files[0];
+    if (!f) { $("ocrStatus").textContent = "请先选一张题目图片/扫描页。"; return; }
+    if (typeof Tesseract === "undefined") {
+      $("ocrStatus").textContent = needServerTip();
+      return;
+    }
+    $("ocrStatus").textContent = "正在本地扫描识别（识别包已在本机，无需联网下载）…";
+    Tesseract.recognize(f, "chi_sim+eng", Object.assign({
+      logger: function (m) { if (m.status === "recognizing text") { $("ocrStatus").textContent = "正在扫描… " + Math.round(m.progress * 100) + "%"; } }
+    }, OCR_OPT))
+      .then(function (result) {
+        var txt = (result.data.text || "").trim();
+        $("pasteBox").value = txt;
+        if (structAfter) {
+          $("ocrStatus").textContent = "扫描完成，正在交给 AI 整理成题…";
+          var qs = parseQuestions(txt);
+          if (qs.length) { startQuiz(txt); }
+          else { structureWithAI(txt); }
+        } else {
+          $("ocrStatus").textContent = "扫描完成，文字已填入上方文本框（可检查修改）。接着点「AI 整理成题（用粘贴内容）」即可。";
+        }
+      })
+      .catch(function (e) { $("ocrStatus").textContent = "扫描失败：" + (e.message || e); });
+  }
+  $("ocrBtn").addEventListener("click", function () { doOcr(false); });
+  $("ocrStructBtn").addEventListener("click", function () { doOcr(true); });
+  // ---- 拍照/上传我的作答：本地 OCR 识别成文字存档 ----
+  $("ansBtn").addEventListener("click", function () {
+    var f = $("ansFile").files[0];
+    if (!f) { $("ansStatus").textContent = "请先选择或拍摄一张作答图片。"; return; }
+    if (typeof Tesseract === "undefined") { $("ansStatus").textContent = needServerTip(); return; }
+    $("ansThumb").src = URL.createObjectURL(f);
+    $("ansThumb").classList.remove("hidden");
+    $("ansStatus").textContent = "正在识别你的作答…";
+    Tesseract.recognize(f, "chi_sim+eng", Object.assign({
+      logger: function (m) { if (m.status === "recognizing text") { $("ansStatus").textContent = "正在识别… " + Math.round(m.progress * 100) + "%"; } }
+    }, OCR_OPT))
+      .then(function (r) {
+        $("ansText").style.display = "block";
+        $("ansText").value = (r.data.text || "").trim();
+        $("ansStatus").textContent = "识别完成 ✅ 文字在下方，可修改，复制走保存都行。";
+      })
+      .catch(function (e) { $("ansStatus").textContent = "识别失败：" + (e.message || e); });
+  });
+  $("imgBtn").addEventListener("click", function () {
+    var f = $("imgFile").files[0];
+    if (!f) { $("err").textContent = "请先选择一张题目图片。"; return; }
+    var reader = new FileReader();
+    reader.onload = function () { recognizeImage(reader.result); };
+    reader.onerror = function () { $("err").textContent = "读取图片失败。"; };
+    reader.readAsDataURL(f);
+  });
+  $("aiSave").addEventListener("click", function () {
+    localStorage.setItem("aiBase", $("aiBase").value.trim());
+    localStorage.setItem("aiKey", $("aiKey").value.trim());
+    localStorage.setItem("aiModel", $("aiModel").value.trim());
+    localStorage.setItem("aiVision", $("aiVision").value.trim());
+    $("aiStatus").textContent = "已保存 ✅";
+  });
+  loadSettings();
+})();
+</script>
 </body>
 </html>
-#背单词卡片页面
